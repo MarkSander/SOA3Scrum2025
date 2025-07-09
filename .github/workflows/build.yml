@@ -11,6 +11,7 @@ jobs:
   build:
     name: Build, Test, and Analyze
     runs-on: windows-latest
+
     steps:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -47,17 +48,34 @@ jobs:
       - name: Begin SonarCloud analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_SCANNER_OPTS: "-Dsonar.verbose=true"
         shell: powershell
         run: |
-          .\.sonar\scanner\dotnet-sonarscanner begin /k:"MarkSander_SOA3Scrum2025" /o:"marksander" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
+          .\.sonar\scanner\dotnet-sonarscanner begin `
+            /k:"MarkSander_SOA3Scrum2025" `
+            /o:"marksander" `
+            /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+            /d:sonar.host.url="https://sonarcloud.io" `
+            /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
 
       - name: Restore dependencies
         run: dotnet restore
+
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
       - name: Test with coverage
-        run: dotnet test --no-build --configuration Release /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput=TestResults/coverage.opencover.xml
+        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+
+      - name: Show generated coverage files
+        run: |
+          echo "Listing TestResults folders:"
+          dir /s /b TestResults
+          echo "Looking for coverage.opencover.xml:"
+          dir /s /b coverage.opencover.xml
+
+      - name: Echo sonar-project.properties (scanner settings)
+        run: type .sonarqube\out\sonar-project.properties
 
       - name: End SonarCloud analysis
         env:

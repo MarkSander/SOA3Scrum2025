@@ -156,7 +156,7 @@ namespace Domain.Entities
     }
 
     // Creational design pattern. Dit is een voorbeeld van het Factory method Pattern. Op basis van een string worden er verschillende soorten NotificationChannel objecten aangemaakt
-    public class NotificationChannelFactory
+    public static class NotificationChannelFactory
     {
         public static NotificationChannel CreateChannel(string type)
         {
