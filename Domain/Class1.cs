@@ -61,6 +61,7 @@ namespace Domain
             Console.WriteLine(sprintReport.Generate());
 
             // Output some info
+            Console.WriteLine($"Scrum Master: {sm.Name}");
             Console.WriteLine($"Project: {project.Name}, Owner: {project.ProductOwner.Name}");
             Console.WriteLine($"Sprint: {sprint.Name}, Backlog Items: {sprint.BacklogItems.Count}");
             Console.WriteLine($"Backlog Item: {backlogItem.Title}, State: {backlogItem.State.Name}");
