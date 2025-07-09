@@ -68,11 +68,13 @@ jobs:
         run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
 
       - name: Show generated coverage files
+        shell: powershell
         run: |
-          echo "Listing TestResults folders:"
-          dir /s /b TestResults
-          echo "Looking for coverage.opencover.xml:"
-          dir /s /b coverage.opencover.xml
+          Write-Host "Listing TestResults folders:"
+          Get-ChildItem -Recurse -Directory -Filter TestResults
+
+          Write-Host "Looking for coverage.opencover.xml files:"
+          Get-ChildItem -Recurse -Filter coverage.opencover.xml | ForEach-Object { $_.FullName }
 
       - name: Echo sonar-project.properties (scanner settings)
         run: type .sonarqube\out\sonar-project.properties
