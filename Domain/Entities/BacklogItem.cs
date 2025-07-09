@@ -120,8 +120,7 @@ namespace Domain.Entities
 
         public void Unsubscribe(INotificationSubscriber subscriber)
         {
-            if (_subscribers.Contains(subscriber))
-                _subscribers.Remove(subscriber);
+            _subscribers.Remove(subscriber);
         }
 
         public void NotifyAll(BacklogItem item, string message)
@@ -159,7 +158,7 @@ namespace Domain.Entities
     // Creational design pattern. Dit is een voorbeeld van het Factory method Pattern. Op basis van een string worden er verschillende soorten NotificationChannel objecten aangemaakt
     public class NotificationChannelFactory
     {
-        public NotificationChannel CreateChannel(string type)
+        public static NotificationChannel CreateChannel(string type)
         {
             return type.ToLower() switch
             {
