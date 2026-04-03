@@ -78,7 +78,13 @@ jobs:
 
       - name: Echo sonar-project.properties (scanner settings)
         shell: powershell
-        run: type .sonarqube\out\sonar-project.properties
+        run: |
+          $p = ".sonarqube\out\sonar-project.properties"
+          if (Test-Path $p) {
+            Get-Content $p
+          } else {
+            Write-Host "Sonar file not found: $p (likely Sonar begin didn't run or token not available). Skipping."
+          }
 
       - name: End SonarCloud analysis
         env:
