@@ -11,7 +11,7 @@ jobs:
   sonarcloud:
     name: SonarCloud
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,7 +42,7 @@ jobs:
         if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
         shell: powershell
         run: |
-          New-Item -Path .\.sonar\scanner -ItemType Directory
+          New-Item -Path .\.sonar\scanner -ItemType Directory -Force
           dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
 
       - name: Restore dependencies
@@ -66,17 +66,6 @@ jobs:
 
       - name: Run tests with coverage
         run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
-
-      - name: Display coverage files (debug)
-        if: always()
-        shell: powershell
-        run: |
-          Write-Host "Looking for coverage files..."
-          if (Test-Path "./TestResults") {
-            Get-ChildItem -Path "./TestResults" -Recurse -Filter "coverage.opencover.xml" | ForEach-Object { Write-Host $_.FullName }
-          } else {
-            Write-Host "TestResults directory not found"
-          }
 
       - name: End SonarCloud analysis
         env:
