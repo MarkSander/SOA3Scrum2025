@@ -48,12 +48,40 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build and analyze
+      - name: Begin SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: powershell
+        run: |
+          .\.sonar\scanner\dotnet-sonarscanner begin `
+            /k:"MarkSander_SOA3Scrum2025" `
+            /o:"marksander" `
+            /d:sonar.token="${env:SONAR_TOKEN}" `
+            /d:sonar.host.url="https://sonarcloud.io" `
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml" `
+            /d:sonar.coverage.exclusions="**Tests*.cs"
+
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests with coverage
+        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+      - name: Display coverage files (debug)
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "Looking for coverage files..."
+          if (Test-Path "./TestResults") {
+            Get-ChildItem -Path "./TestResults" -Recurse -Filter "coverage.opencover.xml" | ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Host "TestResults directory not found"
+          }
+
+      - name: End SonarCloud analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          .\.sonar\scanner\dotnet-sonarscanner begin /k:"MarkSander_SOA3Scrum2025" /o:"marksander" /d:sonar.token="${env:SONAR_TOKEN}" /d:sonar.host.url="https://sonarcloud.io"
-          dotnet build --configuration Release --no-restore
           .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.token="${env:SONAR_TOKEN}"
