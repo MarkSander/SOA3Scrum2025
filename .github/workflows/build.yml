@@ -77,6 +77,7 @@ jobs:
           Get-ChildItem -Recurse -Filter coverage.opencover.xml | ForEach-Object { $_.FullName }
 
       - name: Echo sonar-project.properties (scanner settings)
+        shell: powershell
         run: type .sonarqube\out\sonar-project.properties
 
       - name: End SonarCloud analysis
