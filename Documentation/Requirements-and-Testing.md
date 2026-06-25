@@ -78,20 +78,24 @@ De volgende aannames zijn gemaakt tijdens de ontwikkeling:
 5. **Tested**: Testen succesvol afgerond
 6. **Done**: Volledig afgerond
 
-**State Transitions**:
+**State Transitions** (conform casus):
 | Van State | Naar State(s) | Voorwaarde |
 |-----------|---------------|------------|
-| Todo | Doing | Altijd toegestaan |
-| Doing | ReadyForTesting, Todo | - |
-| ReadyForTesting | Testing, Doing | - |
-| Testing | Tested, ReadyForTesting | - |
-| Tested | Done, Testing | Alleen Done als alle Activities Done zijn |
-| Done | - | Geen verdere transitions |
+| Todo | Doing | Werk starten |
+| Doing | ReadyForTesting | Developer levert op voor test |
+| ReadyForTesting | Testing, Todo | Tester pakt op / keurt af → Todo (notify scrum master) |
+| Testing | Tested, Todo | Test slaagt / gaat mis → Todo (notify scrum master) |
+| Tested | Done, ReadyForTesting | Done alleen als alle Activities Done; DoD afgekeurd → hertest |
+| Done | - | Eindtoestand, geen verdere transitions |
 
 **Business Rules**:
-- BR-01: BacklogItem kan alleen naar Done als alle onderliggende Activities Done zijn
-- BR-02: Van Testing terug naar Doing is niet toegestaan (moet via ReadyForTesting)
-- BR-03: Done is een eindstaat, geen verdere transitions mogelijk
+- BR-01: BacklogItem kan alleen naar Done als alle onderliggende Activities Done zijn (hard afgedwongen in `ChangeState`)
+- BR-02: "Terug naar doing kan niet" — geen enkele state (behalve Todo → Doing) mag terug naar Doing
+- BR-03: Afgekeurd bij (ready for) testing → terug naar **Todo** met notificatie naar de scrum master
+- BR-03b: DoD afgekeurd in Tested → terug naar **ReadyForTesting** voor een nieuwe testronde
+- BR-03c: Done is een eindstaat binnen de sprintuitvoering
+
+> Zie `Domain-Business-Rules.md` §2 voor de volledige casus-traceability per regel.
 
 **Design Pattern**: State Pattern
 
@@ -140,17 +144,30 @@ De volgende aannames zijn gemaakt tijdens de ontwikkeling:
 
 #### FR-05: Sprint Lifecycle
 **Prioriteit**: HOOG  
-**Beschrijving**: Sprints doorlopen verschillende fasen met specifieke regels per fase.
+**Beschrijving**: Sprints doorlopen verschillende stadia met specifieke regels per stadium.
+Een sprint is van het type **Review** of **Release** (`SprintType`). Geïmplementeerd als
+**State Pattern** (`ISprintState`).
 
 **Sprint States**:
-1. **Planned**: Sprint is aangemaakt, eigenschappen kunnen gewijzigd
-2. **Active**: Sprint is gestart, backlog items in uitvoering
-3. **Completed**: Sprint is afgelopen, wacht op afronding
+1. **Planned**: aangemaakt; eigenschappen wijzigbaar, backlog items toevoegen mag
+2. **Active**: uitvoering gestart; eigenschappen & backlog gelocked
+3. **Finished**: 'de tijd is op'; afronding per type (review-close of release-start)
+4. **Releasing**: development pipeline draait; sprint volledig gelocked (transiënt)
+5. **ReleaseFailed**: pipeline faalde; scrum master kan retry of cancel
+6. **Closed**: succesvol afgerond / gereleased (eindtoestand)
+7. **Cancelled**: geannuleerd (eindtoestand)
 
-**Details**:
-- Sprint heeft naam, start datum, eind datum
-- Sprint bevat een lijst van backlog items
-- Sprint kan gekoppeld worden aan een development pipeline
+**Business Rules**:
+- BR-S1: eigenschappen/backlog items alleen wijzigbaar in **Planned**
+- BR-S2: review-sprint sluit **alleen** na geüploade reviewsamenvatting
+- BR-S3: release: succes → **Closed** (notify PO+SM); fout → **ReleaseFailed** (notify SM)
+- BR-S4: na falen kan de scrum master **retry** of **annuleren**
+- BR-S5: tijdens de pipeline (**Releasing**) is de sprint niet wijzigbaar
+- BR-S6: alleen een **release**-sprint kan releasen
+
+**Design Pattern**: State Pattern
+
+> Zie `Domain-Business-Rules.md` §3 voor de volledige casus-traceability.
 
 ---
 
@@ -870,7 +887,7 @@ Voor methods met **cyclomatic complexity ≥ 5**, passen we path coverage toe:
 | **FR-02** | BacklogItemTests.ChangeState_ValidTransition_* (7 tests) | ✅ Pass | 95% |
 | **FR-03** | ActivityTests.* (16 tests) | ✅ Pass | 90% |
 | **FR-04** | BacklogItemTests.ChangeState_*_SendsNotification (4 tests) | ✅ Pass | 100% |
-| **FR-05** | SprintTests.Constructor_InitializesProperties | ✅ Pass | 85% |
+| **FR-05** | SprintTests.* (20 tests: lifecycle, review-close, release succes/falen/retry/cancel, locking) | ✅ Pass | 90% |
 | **FR-06** | PipelineTests.* (8 tests) | ✅ Pass | 88% |
 | **FR-07** | SprintReportTests.*Decorator* (4 tests) | ✅ Pass | 100% |
 | **FR-08** | SprintReportTests.*Strategy* (7 tests) | ✅ Pass | 100% |
@@ -975,18 +992,21 @@ Voor methods met **cyclomatic complexity ≥ 5**, passen we path coverage toe:
 
 ### 7.3 Test Summary
 
-**Total Tests**: 52  
-**Passed**: 52 ✅  
+**Total Tests**: 76  
+**Passed**: 76 ✅  
 **Failed**: 0  
 **Skipped**: 0  
 
+> Geverifieerd met `dotnet test`: `Passed! - Failed: 0, Passed: 76, Skipped: 0, Total: 76`.
+
 **Coverage**:
-- **Line Coverage**: ~85% (estimated, final via SonarCloud)
-- **Branch Coverage**: ~80% (estimated, final via SonarCloud)
+- **Line Coverage**: ~85% (definitief via SonarCloud — zie code-analyse rapportage)
+- **Branch Coverage**: ~80% (definitief via SonarCloud)
 
 **Design Pattern Coverage**:
-- ✅ State Pattern: 7 tests
-- ✅ Observer Pattern: 4 tests
+- ✅ State Pattern (BacklogItem): 12 tests — incl. alle casus-regressiepaden + BR-01
+- ✅ State Pattern (Sprint lifecycle): 20 tests
+- ✅ Observer Pattern: 5 tests
 - ✅ Composite Pattern: 13 tests
 - ✅ Decorator Pattern: 4 tests
 - ✅ Command Pattern: 8 tests

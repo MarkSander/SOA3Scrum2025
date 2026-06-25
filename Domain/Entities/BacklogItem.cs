@@ -54,22 +54,47 @@ namespace Domain.Entities
         public void Subscribe(INotificationSubscriber subscriber) => _notifier.Subscribe(subscriber);
         public void Unsubscribe(INotificationSubscriber subscriber) => _notifier.Unsubscribe(subscriber);
 
-        // State Pattern: De state veranderen bijvoorbeeld van todo naar doing. 
+        // State Pattern: De state veranderen bijvoorbeeld van todo naar doing.
         // Dit kan alleen als de CanTransitionTo method true teruggeeft.
         public void ChangeState(IBacklogItemState newState)
         {
-            if (State.CanTransitionTo(newState))
-            {
-                var oldState = State.Name;
-                State = newState;
-                if (State.Name == "ReadyForTesting" || State.Name == "Done" || State.Name == "Todo")
-                {
-                    _notifier.NotifyAll(this, $"Status changed from {oldState} to {State.Name}");
-                }
-            }
-            else
+            if (!State.CanTransitionTo(newState))
             {
                 throw new InvalidOperationException($"Transition from {State.Name} to {newState.Name} is not allowed.");
+            }
+
+            // Business Rule (casus): een backlog item mag pas naar Done als alle
+            // onderliggende activities Done zijn. Hier wordt de regel hard afgedwongen.
+            if (newState is DoneState && !CanMarkAsDone())
+            {
+                throw new InvalidOperationException(
+                    $"BacklogItem '{Title}' cannot move to Done: not all underlying activities are completed.");
+            }
+
+            var oldState = State;
+            State = newState;
+            NotifyOnTransition(oldState, newState);
+        }
+
+        // Observer Pattern: stuurt gerichte notificaties op basis van de transitie,
+        // conform de casus (testers, scrum master en (lead) developer).
+        private void NotifyOnTransition(IBacklogItemState from, IBacklogItemState to)
+        {
+            if (to is ReadyForTestingState)
+            {
+                // Item klaar voor test -> testers krijgen een notificatie.
+                _notifier.NotifyAll(this, $"Status changed to {to.Name}: testers are notified.");
+            }
+            else if (to is TodoState)
+            {
+                // Tester constateerde dat het item toch niet klaar was: het gaat terug
+                // naar Todo en de scrum master wordt geïnformeerd.
+                _notifier.NotifyAll(this, $"Status changed from {from.Name} to {to.Name}: scrum master is notified.");
+            }
+            else if (to is DoneState)
+            {
+                // (Lead) developer heeft het via de definition of done goedgekeurd.
+                _notifier.NotifyAll(this, $"Status changed to {to.Name}: lead developer is notified.");
             }
         }
 
@@ -125,36 +150,45 @@ namespace Domain.Entities
     public class TodoState : IBacklogItemState
     {
         public string Name => "Todo";
+        // Aan het begin van de sprint start een item in Todo; werk starten -> Doing.
         public bool CanTransitionTo(IBacklogItemState newState) => newState is DoingState;
     }
 
     public class DoingState : IBacklogItemState
     {
         public string Name => "Doing";
-        public bool CanTransitionTo(IBacklogItemState newState) => newState is ReadyForTestingState || newState is TodoState;
+        // Developer levert op voor test. Casus: 'terug naar doing kan niet', dus geen
+        // enkele andere state mag terug naar Doing (zie de overige states).
+        public bool CanTransitionTo(IBacklogItemState newState) => newState is ReadyForTestingState;
     }
 
     public class ReadyForTestingState : IBacklogItemState
     {
         public string Name => "ReadyForTesting";
-        public bool CanTransitionTo(IBacklogItemState newState) => newState is TestingState || newState is DoingState;
+        // Tester pakt het item op (Testing), of constateert dat het toch niet klaar is
+        // en stuurt het terug naar Todo (niet naar Doing!) -> scrum master notificatie.
+        public bool CanTransitionTo(IBacklogItemState newState) => newState is TestingState || newState is TodoState;
     }
 
     public class TestingState : IBacklogItemState
     {
         public string Name => "Testing";
-        public bool CanTransitionTo(IBacklogItemState newState) => newState is TestedState || newState is ReadyForTestingState;
+        // Test slaagt -> Tested. Gaat er iets mis -> terug naar Todo (werk voor developer).
+        public bool CanTransitionTo(IBacklogItemState newState) => newState is TestedState || newState is TodoState;
     }
 
     public class TestedState : IBacklogItemState
     {
         public string Name => "Tested";
-        public bool CanTransitionTo(IBacklogItemState newState) => newState is DoneState || newState is TestingState;
+        // (Lead) developer controleert de definition of done: akkoord -> Done,
+        // niet akkoord -> terug naar ReadyForTesting voor een nieuwe testronde.
+        public bool CanTransitionTo(IBacklogItemState newState) => newState is DoneState || newState is ReadyForTestingState;
     }
 
     public class DoneState : IBacklogItemState
     {
         public string Name => "Done";
+        // Done is een eindtoestand binnen de sprintuitvoering.
         public bool CanTransitionTo(IBacklogItemState newState) => false;
     }
 
@@ -210,6 +244,15 @@ namespace Domain.Entities
         }
     }
 
+    public class SmsChannel : NotificationChannel
+    {
+        public override void Send(string message)
+        {
+            // Simuleer sms-notificatie
+            Console.WriteLine($"[SMS] {message}");
+        }
+    }
+
     // Creational design pattern. Dit is een voorbeeld van het Factory method Pattern. Op basis van een string worden er verschillende soorten NotificationChannel objecten aangemaakt
     public static class NotificationChannelFactory
     {
@@ -219,6 +262,7 @@ namespace Domain.Entities
             {
                 "email" => new EmailChannel(),
                 "slack" => new SlackChannel(),
+                "sms" => new SmsChannel(),
                 _ => throw new ArgumentException($"Unknown channel type: {type}")
             };
         }

@@ -47,6 +47,16 @@
 **Verdediging:**
 > "Ik heb voor State Pattern gekozen omdat BacklogItem een echte state machine is met 6 states en complexe transitie regels. Elke state valideert zelf welke volgende states toegestaan zijn, wat de business logic encapsuleert. Dit maakt het gemakkelijk om nieuwe states toe te voegen zonder bestaande code te wijzigen (Open/Closed Principle). De trade-off is dat je meer classes hebt, maar de voordelen in testbaarheid en maintainability wegen zwaarder."
 
+**Tweede toepassing — Sprint lifecycle:**
+> Het State Pattern wordt **twee keer** toegepast. Naast BacklogItem heeft ook `Sprint` een
+> state-machine (`PlannedState`, `ActiveState`, `FinishedState`, `ReleasingState`,
+> `ReleaseFailedState`, `ClosedState`, `CancelledState`). Hier gebruik ik een
+> `SprintStateBase` die elke actie standaard als 'niet toegestaan' afhandelt; concrete states
+> overschrijven alleen wat in dat stadium mag. Dat is precies het State Pattern in combinatie
+> met een Template-achtige basisklasse, en het dwingt casus-regels af zoals "tijdens de
+> pipeline kan de sprint niet gewijzigd worden" en "review pas afsluitbaar na geüpload
+> document". Zie `Domain-Business-Rules.md` §3 voor de volledige onderbouwing.
+
 ---
 
 ### 1.2 Observer Pattern (Notifications)
@@ -739,7 +749,7 @@ public class Pipeline
 ### 5.1 SonarCloud Quality Gate A
 
 **Wat heb ik bereikt:**
-- ✅ **52 tests** (van 23 naar 52)
+- ✅ **76 tests** (van 52 naar 76 na casus-alignment van de state-machines)
 - ✅ **100% passing** (geen failures)
 - ✅ **80%+ coverage** (target: ≥80%)
 - ✅ **0 bugs** (SonarCloud Reliability A)
@@ -822,7 +832,7 @@ subscriber.Received(1).Notify(backlogItem, Arg.Any<string>());
 - Goede balans tussen complexity en simplicity
 
 ✅ **Testing**
-- 52 tests geven confidence in code quality
+- 76 tests geven confidence in code quality
 - Business rules zijn allemaal gedekt
 - Goede coverage (80%+)
 
@@ -947,14 +957,14 @@ subscriber.Received(1).Notify(backlogItem, Arg.Any<string>());
 > - Decorator Pattern voor flexibele report samenstelling
 > - Strategy Pattern voor runtime export format switching
 >
-> Ik heb 52 unit tests geschreven met 80%+ coverage, alle SOLID principes toegepast, en een SonarCloud Quality Gate A behaald. Mijn code is production-ready binnen de scope van een Application Core."
+> Ik heb 76 unit tests geschreven met 80%+ coverage, alle SOLID principes toegepast, en een SonarCloud Quality Gate A behaald. Mijn code is production-ready binnen de scope van een Application Core."
 
 ---
 
 ### 🎯 Sterke Afsluitings Statement
 
 > "Wat ik het meest trots op ben, is dat elk design pattern een **echte waarde** toevoegt. Ik had geforceerd 6 patterns in kunnen proppen, maar in plaats daarvan heb ik gezocht naar patterns die **natuurlijk volgen uit de requirements**. Het resultaat is een systeem dat:
-> - **Testbaar** is (52 tests, 80%+ coverage)
+> - **Testbaar** is (76 tests, 80%+ coverage)
 > - **Uitbreidbaar** is (Open/Closed Principle)
 > - **Begrijpbaar** is (goede separation of concerns)
 > - **Maintainable** is (SonarCloud A rating)

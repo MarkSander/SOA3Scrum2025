@@ -31,4 +31,9 @@ namespace Domain.Entities
     {
         public ProductOwner(string name) : base(name) { }
     }
+
+    public class Tester : User
+    {
+        public Tester(string name) : base(name) { }
+    }
 }

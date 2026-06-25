@@ -180,18 +180,111 @@ namespace Tests
             var backlogItem = new BacklogItem("Test Item", "Description");
             var activity = new Activity("Activity");
             backlogItem.AddWorkItem(activity);
+            activity.Status = ActivityStatus.Done; // mag naar Done
 
-            // Transition to Done state (we'll need to go through all states)
+            // Doorloop alle states tot Done (toegestaan want activity is Done).
             backlogItem.ChangeState(new DoingState());
             backlogItem.ChangeState(new ReadyForTestingState());
             backlogItem.ChangeState(new TestingState());
             backlogItem.ChangeState(new TestedState());
             backlogItem.ChangeState(new DoneState());
 
-            activity.Status = ActivityStatus.Todo; // Not done
+            // Activity wordt achteraf teruggezet -> defensieve waarschuwing in GetStatus.
+            activity.Status = ActivityStatus.Todo;
 
             var status = backlogItem.GetStatus();
             Assert.Contains("not all activities completed", status);
+        }
+
+        // --- Casus business rules: state transitions ---
+
+        [Fact]
+        public void ChangeState_ToDone_Throws_WhenActivitiesNotComplete()
+        {
+            // BR: een backlog item mag pas naar Done als alle activities Done zijn.
+            var backlogItem = new BacklogItem("Test Item", "Description");
+            backlogItem.AddWorkItem(new Activity("Open work")); // blijft Todo
+
+            backlogItem.ChangeState(new DoingState());
+            backlogItem.ChangeState(new ReadyForTestingState());
+            backlogItem.ChangeState(new TestingState());
+            backlogItem.ChangeState(new TestedState());
+
+            Assert.Throws<InvalidOperationException>(() => backlogItem.ChangeState(new DoneState()));
+            Assert.Equal("Tested", backlogItem.State.Name);
+        }
+
+        [Fact]
+        public void ChangeState_ReadyForTestingToTodo_NotifiesScrumMaster()
+        {
+            // Casus: tester ziet dat item niet klaar is -> terug naar Todo, scrum master genotificeerd.
+            var item = new BacklogItem("Test item", "Beschrijving");
+            var subscriber = Substitute.For<INotificationSubscriber>();
+            item.Subscribe(subscriber);
+            item.ChangeState(new DoingState());
+            item.ChangeState(new ReadyForTestingState());
+
+            item.ChangeState(new TodoState());
+
+            Assert.Equal("Todo", item.State.Name);
+            subscriber.Received(1).Notify(item, Arg.Is<string>(msg => msg.Contains("scrum master")));
+        }
+
+        [Fact]
+        public void ChangeState_TestingToTodo_IsAllowed()
+        {
+            // Casus: tijdens testen gaat er iets mis -> werk voor developer, terug naar Todo.
+            var item = new BacklogItem("Test item", "Beschrijving");
+            item.ChangeState(new DoingState());
+            item.ChangeState(new ReadyForTestingState());
+            item.ChangeState(new TestingState());
+
+            item.ChangeState(new TodoState());
+
+            Assert.Equal("Todo", item.State.Name);
+        }
+
+        [Fact]
+        public void ChangeState_TestedToReadyForTesting_IsAllowed()
+        {
+            // Casus: (lead) developer keurt DoD af -> terug naar ReadyForTesting voor hertest.
+            var item = new BacklogItem("Test item", "Beschrijving");
+            item.ChangeState(new DoingState());
+            item.ChangeState(new ReadyForTestingState());
+            item.ChangeState(new TestingState());
+            item.ChangeState(new TestedState());
+
+            item.ChangeState(new ReadyForTestingState());
+
+            Assert.Equal("ReadyForTesting", item.State.Name);
+        }
+
+        [Fact]
+        public void ChangeState_ReadyForTestingToDoing_Throws()
+        {
+            // Casus: 'terug naar doing kan niet'.
+            var item = new BacklogItem("Test item", "Beschrijving");
+            item.ChangeState(new DoingState());
+            item.ChangeState(new ReadyForTestingState());
+
+            Assert.Throws<InvalidOperationException>(() => item.ChangeState(new DoingState()));
+        }
+
+        [Fact]
+        public void ChangeState_ToDone_Succeeds_WhenAllActivitiesDone()
+        {
+            var item = new BacklogItem("Test item", "Beschrijving");
+            var activity = new Activity("Work");
+            item.AddWorkItem(activity);
+            activity.Status = ActivityStatus.Done;
+
+            item.ChangeState(new DoingState());
+            item.ChangeState(new ReadyForTestingState());
+            item.ChangeState(new TestingState());
+            item.ChangeState(new TestedState());
+            item.ChangeState(new DoneState());
+
+            Assert.Equal("Done", item.State.Name);
         }
     }
 }

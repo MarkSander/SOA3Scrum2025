@@ -411,7 +411,7 @@ SprintReport --> IReportExportStrategy : Strategy Pattern
 | **FR-08**: Report Export | SprintReportTests.*Strategy* | 7 | 100% |
 | **FR-09**: Discussion Thread | DiscussionThreadTests.* | 3 | 100% |
 
-**Totaal: 52 test cases**
+**Totaal: 76 test cases** (geverifieerd: `Failed: 0, Passed: 76`)
 
 **Bewijslast:**
 - ✅ Elke requirement heeft dedicated tests
@@ -1143,14 +1143,14 @@ stateMachine.Configure(State.Doing)
 
 ### ✅ Unit Tests & Code Analyse (10%) - Score: 9-10
 
-- [x] Traceability matrix (52 tests → Requirements)
+- [x] Traceability matrix (76 tests → Requirements)
 - [x] Business rules coverage (11/11 = 100%)
 - [x] Test ontwerpen (state machine graaf, decision tables)
 - [x] SonarCloud Quality Gate A (85% coverage)
 - [x] Code analyse evaluatie in document
 
 **Evidence**:
-- Tests: `Tests/*Tests.cs` (52 test methods)
+- Tests: `Tests/*Tests.cs` (76 test methods)
 - Docs: `Documentation/Requirements-and-Testing.md` Sectie 6 & 7
 - SonarCloud: https://sonarcloud.io/project/overview?id=MarkSander_SOA3Scrum2025
 
@@ -1204,7 +1204,7 @@ stateMachine.Configure(State.Doing)
 ### Demonstratie Volgorde (15 min):
 
 **1. Opening (1 min)**
-> "Ik heb een Application Core gebouwd met 6 design patterns, 52 tests, Quality Gate A. Laat ik het ontwerp laten zien..."
+> "Ik heb een Application Core gebouwd met 6 design patterns, 76 tests, Quality Gate A. Laat ik het ontwerp laten zien..."
 
 **2. UML Walkthrough (3 min)**
 - Overall Domain Model → structuur uitleggen
@@ -1217,7 +1217,7 @@ stateMachine.Configure(State.Doing)
 - SprintReport.cs → Decorator + Strategy
 
 **4. Tests Demonstratie (2 min)**
-- Run tests (live) → 52 passing
+- Run tests (live) → 76 passing
 - Show coverage rapport → 85%
 - Show traceability matrix → requirements coverage
 

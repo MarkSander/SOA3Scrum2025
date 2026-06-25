@@ -59,17 +59,22 @@ class Sprint {
     +string Name
     +DateTime StartDate
     +DateTime EndDate
+    +SprintType Type
     +List<BacklogItem> BacklogItems
-    +SprintStatus Status
+    +ISprintState State
+    +string StatusName
     +Pipeline? Pipeline
     --
-    +Sprint(name, startDate, endDate)
+    +Sprint(name, startDate, endDate, type)
+    +void AddBacklogItem(BacklogItem)
+    +void Start() / Finish()
+    +void StartRelease() / CloseAfterReview()
+    +void Cancel()
 }
 
-enum SprintStatus {
-    Planned
-    Active
-    Completed
+enum SprintType {
+    Review
+    Release
 }
 
 interface IWorkItem {
@@ -191,10 +196,10 @@ note right of BacklogItem
 end note
 
 note bottom of Sprint
-  Sprint Status:
-  - Planned: Can modify properties
-  - Active: Backlog items in progress
-  - Completed: Sprint finished
+  **State Pattern** (see Sprint Lifecycle):
+  Planned -> Active -> Finished ->
+  Closed / ReleaseFailed / Cancelled.
+  Review vs Release behaviour via SprintType.
 end note
 
 @enduml
@@ -479,23 +484,23 @@ state Todo {
 
 state Doing {
     Doing : Entry: Developer starts work
-    Doing : Can go back to Todo
+    Doing : Only forward to ReadyForTesting
 }
 
 state ReadyForTesting {
     ReadyForTesting : Entry: Developer finished
     ReadyForTesting : Exit: Notify Testers
-    ReadyForTesting : Can go back to Doing
+    ReadyForTesting : Can go back to Todo (not Doing!)
 }
 
 state Testing {
     Testing : Entry: Tester starts testing
-    Testing : Can go back to ReadyForTesting
+    Testing : Can go back to Todo if issues found
 }
 
 state Tested {
     Tested : Entry: Testing successful
-    Tested : Can go back to Testing if issues found
+    Tested : Can go back to ReadyForTesting if DoD not met
 }
 
 state Done {
@@ -507,16 +512,15 @@ state Done {
 
 Todo --> Doing : ChangeState(DoingState)
 Doing --> ReadyForTesting : ChangeState(ReadyForTestingState)\n[notify testers]
-Doing --> Todo : ChangeState(TodoState)\n[issue found]
 
 ReadyForTesting --> Testing : ChangeState(TestingState)
-ReadyForTesting --> Doing : ChangeState(DoingState)\n[not ready]
+ReadyForTesting --> Todo : ChangeState(TodoState)\n[not ready, notify scrum master]
 
 Testing --> Tested : ChangeState(TestedState)\n[tests passed]
-Testing --> ReadyForTesting : ChangeState(ReadyForTestingState)\n[tests failed, retry]
+Testing --> Todo : ChangeState(TodoState)\n[issue found, notify scrum master]
 
 Tested --> Done : ChangeState(DoneState)\n[validate: all activities done]\n[notify lead developer]
-Tested --> Testing : ChangeState(TestingState)\n[DoD not met]
+Tested --> ReadyForTesting : ChangeState(ReadyForTestingState)\n[DoD not met, retest]
 
 Done --> [*]
 
@@ -539,8 +543,9 @@ note left of Doing
   **Invalid Transitions:**
   Todo -> Tested ❌
   Todo -> Done ❌
+  ReadyForTesting -> Doing ❌
   Testing -> Doing ❌
-  (must go via ReadyForTesting)
+  ("terug naar doing kan niet")
 end note
 
 @enduml
@@ -559,84 +564,71 @@ title TITLE
 [*] --> Planned
 
 state Planned {
-    Planned : Sprint properties editable
-    Planned : Can add/remove BacklogItems
+    Planned : Properties editable
+    Planned : AddBacklogItem / Rename / Reschedule
     Planned : Can set Pipeline
 }
 
 state Active {
     Active : Sprint execution started
-    Active : BacklogItems in progress
-    Active : Properties locked
+    Active : Properties & backlog locked
 }
 
 state Finished {
-    Finished : End date reached
-    Finished : All work should be done
+    Finished : End date reached ('finished')
+    Finished : Review: UploadReviewSummary + CloseAfterReview
+    Finished : Release: StartRelease
 }
 
-state "Review\nPending" as ReviewPending {
-    ReviewPending : Awaiting sprint review
-    ReviewPending : Review document required
+state Releasing {
+    Releasing : Development pipeline executing
+    Releasing : Sprint fully locked (transient)
 }
 
-state "Release\nPending" as ReleasePending {
-    ReleasePending : Ready for release
-    ReleasePending : Can trigger pipeline
-}
-
-state "Pipeline\nRunning" as PipelineRunning {
-    PipelineRunning : Development pipeline executing
-    PipelineRunning : Cannot modify sprint
+state "Release\nFailed" as ReleaseFailed {
+    ReleaseFailed : Pipeline failed
+    ReleaseFailed : Scrum master can retry or cancel
 }
 
 state Closed {
-    Closed : Sprint successfully completed
+    Closed : Sprint completed / released
     Closed : Final state
 }
 
 state Cancelled {
-    Cancelled : Sprint cancelled/failed
+    Cancelled : Sprint / release cancelled
     Cancelled : Final state
 }
 
-Planned --> Active : Start sprint
-Active --> Finished : End date reached
+Planned --> Active : Start()
+Planned --> Cancelled : Cancel()
+Active --> Finished : Finish()\n[end date reached]
 
-Finished --> ReviewPending : [Sprint type = Review]
-Finished --> ReleasePending : [Sprint type = Release]
+Finished --> Closed : [Review] CloseAfterReview()\n[review summary uploaded]
+Finished --> Releasing : [Release] StartRelease()
+Finished --> Cancelled : Cancel()\n[notify PO & SM]
 
-ReviewPending --> Closed : Upload review document\n& close sprint
-ReviewPending --> Cancelled : Cancel sprint
+Releasing --> Closed : [Pipeline success]\n[notify PO & SM]
+Releasing --> ReleaseFailed : [Pipeline failed]\n[notify SM]
 
-ReleasePending --> PipelineRunning : Trigger release\n[start pipeline]
-ReleasePending --> Cancelled : Cancel release
-
-PipelineRunning --> Closed : [Pipeline success]\n[notify PO & SM]
-PipelineRunning --> ReleasePending : [Pipeline failed]\n[can retry]\n[notify SM]
-PipelineRunning --> Cancelled : Cancel release
+ReleaseFailed --> Releasing : StartRelease()\n[retry]
+ReleaseFailed --> Cancelled : Cancel()\n[notify PO & SM]
 
 Closed --> [*]
 Cancelled --> [*]
 
-note right of PipelineRunning
+note right of Releasing
   **Command Pattern in Action:**
   Pipeline executes actions sequentially.
-  On failure:
-  - Retry() to run again
-  - Rollback() to undo actions
+  Sprint cannot be modified while running.
 end note
 
-note bottom of ReleasePending
-  **Business Rule:**
-  Release can only be triggered
-  if Sprint has a configured Pipeline
-end note
-
-note left of ReviewPending
-  **Business Rule:**
-  Sprint can only close if
-  review document is uploaded
+note bottom of Finished
+  **Business Rules:**
+  - Review sprint closes only if
+    review summary is uploaded
+  - Only a release sprint can StartRelease,
+    and only with a configured Pipeline
 end note
 
 @enduml
@@ -1166,13 +1158,12 @@ IBacklogItemState <|.. DoneState
 
 TodoState ..> DoingState : allows transition to
 DoingState ..> ReadyForTestingState : allows transition to
-DoingState ..> TodoState : allows transition to
 ReadyForTestingState ..> TestingState : allows transition to
-ReadyForTestingState ..> DoingState : allows transition to
+ReadyForTestingState ..> TodoState : allows transition to
 TestingState ..> TestedState : allows transition to
-TestingState ..> ReadyForTestingState : allows transition to
+TestingState ..> TodoState : allows transition to
 TestedState ..> DoneState : allows transition to
-TestedState ..> TestingState : allows transition to
+TestedState ..> ReadyForTestingState : allows transition to
 
 note right of BacklogItem
   **Context**
