@@ -24,8 +24,10 @@ namespace Tests
             var action2 = new BuildAction();
             pipeline.AddAction(action1);
             pipeline.AddAction(action2);
-            using (var sw = new StringWriter())
+            var originalOut = Console.Out;
+            try
             {
+                using var sw = new StringWriter();
                 Console.SetOut(sw);
                 var result = pipeline.Run();
                 var output = sw.ToString();
@@ -33,6 +35,10 @@ namespace Tests
                 Assert.Contains("Fetching source code", output);
                 Assert.Contains("Building project", output);
                 Assert.Equal(PipelineStatus.Success, pipeline.Status);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
             }
         }
 
@@ -58,8 +64,10 @@ namespace Tests
             pipeline.AddAction(action1);
             pipeline.AddAction(action2);
 
-            using (var sw = new StringWriter())
+            var originalOut = Console.Out;
+            try
             {
+                using var sw = new StringWriter();
                 Console.SetOut(sw);
                 pipeline.Run();
                 pipeline.Rollback();
@@ -68,6 +76,10 @@ namespace Tests
                 Assert.Contains("Cleaning build output", output);
                 Assert.Contains("Cleaning up fetched source code", output);
                 Assert.Equal(PipelineStatus.RolledBack, pipeline.Status);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
             }
         }
 
